@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="icon.png" alt="UTXOracle Logo" width="21%">
+  <img src="icon.svg" alt="UTXOracle Logo" width="21%">
 </p>
 
 # UTXOracle on StartOS
@@ -17,37 +17,38 @@ through a web interface.
 
 ## Image and Container Runtime
 
-This package builds a custom Python container from the local `Dockerfile`.
-The image includes `utxoracle.py`, `generate-html.py`, `bitcoin-cli`, the
-StartOS entrypoint, and health-check helper scripts.
+This package is a thin wrapper around upstream UTXOracle. The image is
+`python:3.11-slim` with `utxoracle.py` vendored **verbatim** from
+<https://utxo.live/oracle/UTXOracle.py> (see `UPDATING.md`) plus the StartOS
+entrypoint. UTXOracle talks to Bitcoin Core over JSON-RPC using only the Python
+standard library — there is no `bitcoin-cli` and no raw block-file access.
 
-The entrypoint writes a temporary status page, starts the web server
-immediately, waits for Bitcoin Core RPC readiness, runs UTXOracle, and then
-serves the generated `index.html` result page. If UTXOracle exits with an
-error, the entrypoint keeps the web server running and replaces the status page
-with a failure page.
+The entrypoint writes a `bitcoin.conf` pointing at the StartOS Bitcoin Core
+service, shows a temporary status page, starts the web server, waits for Bitcoin
+Core RPC readiness, runs the unmodified script, and serves the HTML chart it
+produces as `index.html`. If UTXOracle exits with an error, the web server keeps
+running and the status page is replaced with a failure page.
 
 Supported architectures are declared in `startos/manifest/index.ts`.
 
 ## Volume and Data Layout
 
-This package owns one StartOS volume:
+The package keeps no state of its own inside the container — the result page is
+recomputed on each run. Its only persistence is the run-mode setting, stored by
+StartOS in `store.json` on the `startos` volume (read in `startos/main.ts`, not
+mounted into the container).
 
-| Volume | Container Mount | Purpose |
-| --- | --- | --- |
-| `main` | `/root` | Stores `config.main` and service-local runtime state. |
-
-The Bitcoin Core dependency volume is mounted read-only at `/mnt/bitcoind`.
-UTXOracle reads the Bitcoin Core RPC cookie and raw block files from that
-mount. If a target block is not found in the mounted raw block files, UTXOracle
-fetches the serialized block from the local Bitcoin Core RPC interface.
+The Bitcoin Core dependency volume is mounted read-only at `/mnt/bitcoind` so
+UTXOracle can read the RPC cookie (`/mnt/bitcoind/.cookie`) for authentication.
+All block data is fetched over JSON-RPC from the local Bitcoin Core service; the
+package does not read raw block files.
 
 ## Installation and First-Run Flow
 
 Install Bitcoin Core on the same StartOS server before starting UTXOracle.
-On install or update, the package normalizes `config.main` with StartOS-managed
-RPC and block-file settings. No RPC username or password is generated or stored
-by this package.
+The entrypoint generates the `bitcoin.conf` that points UTXOracle at the local
+Bitcoin Core service; no RPC username or password is generated or stored by this
+package (it uses Bitcoin Core's cookie).
 
 When the service starts, the web interface becomes available first with a
 temporary status page. The final UTXOracle result page appears after block
@@ -55,20 +56,11 @@ analysis completes.
 
 ## Configuration Management
 
-StartOS manages the runtime config file at `/root/config.main`.
-
-| StartOS-Managed Setting | Purpose |
-| --- | --- |
-| `network` | Locks the package to bitcoin mode. |
-| `rpccookiefile` | Points to the mounted Bitcoin Core RPC cookie. |
-| `bitcoin-rpcconnect` | Points to the local StartOS Bitcoin Core service. |
-| `bitcoin-rpcport` | Points to the Bitcoin Core RPC port. |
-| `blocksdir` | Points to the mounted Bitcoin Core raw block directory. |
-| `bind-addr` | Preserves the historical package setting. |
-| `alias` | Preserves the historical package setting. |
-| `argument` | Stores the optional UTXOracle mode/date argument. |
-
-Users should change only the UTXOracle argument through the Configure action.
+The run mode (`rb` for today, `yesterday`, or a `YYYY/MM/DD` date) lives in
+`store.json` on the `startos` volume. `startos/main.ts` reads it and passes it to
+the container as the `UTXORACLE_MODE` environment variable. Set it through the
+Configure action. The Bitcoin Core RPC connection is separate: the entrypoint
+generates a `bitcoin.conf` at startup.
 
 ## Network Access and Interfaces
 
@@ -82,17 +74,19 @@ The interface port is declared in `startos/interfaces.ts`.
 
 | Action | Availability | Purpose |
 | --- | --- | --- |
-| Configure | Any status | Sets the optional UTXOracle runtime argument. |
+| Configure | Any status | Selects which price UTXOracle estimates on its next run. |
 
-The Configure action accepts blank input for recent block mode, `rb` for recent
-block mode, `y` for yesterday, or a UTC date in the format shown in the action
-placeholder.
+The Configure action offers three choices: **Today** (the most recent 144-block
+window price), **Yesterday** (the previous full UTC day), or **Specific Date** (a
+UTC date from 2023-12-15 onward, chosen with a date picker). The selection is
+stored in `store.json` on the `startos` volume and applied on the service's next
+run.
 
 ## Backups and Restore
 
-Backups include the `main` volume. Restore uses the standard StartOS SDK backup
-flow for that volume. The Bitcoin Core dependency volume is not backed up by
-this package.
+Backups include the `startos` volume (the run-mode setting). Restore uses the
+standard StartOS SDK backup flow for that volume. The Bitcoin Core dependency
+volume is not backed up by this package.
 
 ## Health Checks
 
@@ -106,9 +100,9 @@ this package.
 Bitcoin Core is required. The dependency version range and required health
 checks are declared in `startos/dependencies.ts`.
 
-UTXOracle uses Bitcoin Core for local RPC calls, RPC cookie authentication, and
-access to raw block data. The Bitcoin Core dependency volume is mounted
-read-only.
+UTXOracle uses Bitcoin Core for JSON-RPC calls with RPC cookie authentication.
+The Bitcoin Core dependency volume is mounted read-only solely to read the
+cookie file.
 
 ## Limitations and Differences
 
@@ -122,9 +116,10 @@ read-only.
 
 ## What Is Unchanged from Upstream
 
-The UTXOracle price calculation logic remains the upstream script logic. This
-package changes only StartOS packaging, dependency wiring, runtime paths, and
-service lifecycle behavior.
+`utxoracle.py` is the upstream script, vendored verbatim and unmodified. This
+package adds only the StartOS wrapper around it: the Docker image, the entrypoint
+that supplies `bitcoin.conf` and serves the output, dependency wiring, and the
+Configure action.
 
 ## Contributing
 
@@ -138,14 +133,15 @@ architectures:
   - x86_64
   - aarch64
 volumes:
-  main: /root
+  startos: store.json (run mode; not mounted into the container)
 dependency_mounts:
   bitcoind_main: /mnt/bitcoind
 ports:
   web: http
 dependencies:
   - bitcoind
-startos_managed_env_vars: []
+startos_managed_env_vars:
+  - UTXORACLE_MODE
 actions:
   - configure
 health_checks:
