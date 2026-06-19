@@ -1,8 +1,8 @@
-import { T } from '@start9labs/start-sdk'
-import { configMain, writeNormalizedConfig } from './fileModels/config.main'
+import { FileHelper, T } from '@start9labs/start-sdk'
+import { storeJson } from './fileModels/store.json'
 import { i18n } from './i18n'
 import { sdk } from './sdk'
-import { bitcoinMountpoint, uiPort } from './utils'
+import { bitcoinMountpoint, bitcoinRpcCookieFile, uiPort } from './utils'
 
 type BitcoinCoreManifest = T.SDKManifest & {
   id: 'bitcoind'
@@ -12,23 +12,18 @@ type BitcoinCoreManifest = T.SDKManifest & {
 export const main = sdk.setupMain(async ({ effects }) => {
   console.info(i18n('Starting UTXOracle'))
 
-  await writeNormalizedConfig(effects)
-  await configMain.read().const(effects)
+  // The run mode (set by the Configure action); re-run when it changes.
+  const mode = (await storeJson.read((s) => s.mode).const(effects)) || 'rb'
 
-  const mounts = sdk.Mounts.of()
-    .mountVolume({
-      volumeId: 'main',
-      subpath: null,
-      mountpoint: '/root',
-      readonly: false,
-    })
-    .mountDependency<BitcoinCoreManifest>({
-      dependencyId: 'bitcoind',
-      volumeId: 'main',
-      subpath: null,
-      mountpoint: bitcoinMountpoint,
-      readonly: true,
-    })
+  // Only Bitcoin Core's volume is mounted (read-only, for the RPC cookie);
+  // UTXOracle keeps no state of its own.
+  const mounts = sdk.Mounts.of().mountDependency<BitcoinCoreManifest>({
+    dependencyId: 'bitcoind',
+    volumeId: 'main',
+    subpath: null,
+    mountpoint: bitcoinMountpoint,
+    readonly: true,
+  })
 
   const subcontainer = await sdk.SubContainer.of(
     effects,
@@ -37,11 +32,17 @@ export const main = sdk.setupMain(async ({ effects }) => {
     'utxoracle-sub',
   )
 
+  // Restart the daemon chain if Bitcoin Core's RPC cookie changes
+  await FileHelper.string(`${subcontainer.rootfs}${bitcoinRpcCookieFile}`)
+    .read()
+    .const(effects)
+
   return sdk.Daemons.of(effects)
     .addDaemon('primary', {
       subcontainer,
       exec: {
         command: sdk.useEntrypoint(),
+        env: { UTXORACLE_MODE: mode },
         runAsInit: true,
       },
       ready: {
@@ -59,28 +60,30 @@ export const main = sdk.setupMain(async ({ effects }) => {
       ready: {
         display: i18n('UTXOracle Completion'),
         fn: async () => {
+          // The entrypoint writes utxoracle.py's exit code here once it finishes.
+          // A nonzero `cat` exit means the file is absent: still computing.
           const res = await subcontainer.exec(
-            ['/usr/local/bin/check-complete.sh', 'complete'],
+            ['cat', '/tmp/utxoracle_exit_code'],
             {},
             10_000,
           )
-          const message =
-            String(res.stdout || res.stderr).trim() ||
-            i18n('UTXOracle has not completed successfully')
-
-          if (res.exitCode === 0) {
+          if (res.exitCode !== 0) {
+            return {
+              result: 'loading',
+              message: i18n('UTXOracle is still running'),
+            }
+          }
+          const code = String(res.stdout).trim()
+          if (code === '0') {
             return {
               result: 'success',
               message: i18n('UTXOracle completed successfully'),
             }
           }
-          if (res.exitCode === 60) {
-            return {
-              result: 'loading',
-              message: message || i18n('UTXOracle is still running'),
-            }
+          return {
+            result: 'failure',
+            message: `${i18n('UTXOracle exited with an error')} (exit code ${code})`,
           }
-          return { result: 'failure', message }
         },
         trigger: sdk.trigger.statusTrigger(30_000, {
           starting: 5_000,

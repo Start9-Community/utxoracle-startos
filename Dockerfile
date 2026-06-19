@@ -1,38 +1,17 @@
-FROM python:3.9-slim
+FROM python:3.11-slim
 
-ARG BITCOIN_CORE_VERSION=31.0
-
-RUN apt-get update && apt-get install -y wget tini && rm -rf /var/lib/apt/lists/*
-
-# Install bitcoin-cli based on architecture
-RUN ARCH=$(uname -m) && \
-    if [ "$ARCH" = "aarch64" ]; then \
-        wget https://bitcoincore.org/bin/bitcoin-core-${BITCOIN_CORE_VERSION}/bitcoin-${BITCOIN_CORE_VERSION}-aarch64-linux-gnu.tar.gz && \
-        tar -xvf bitcoin-${BITCOIN_CORE_VERSION}-aarch64-linux-gnu.tar.gz && \
-        mv bitcoin-${BITCOIN_CORE_VERSION}/bin/bitcoin-cli /usr/local/bin/ && \
-        rm -rf bitcoin-${BITCOIN_CORE_VERSION}-aarch64-linux-gnu.tar.gz bitcoin-${BITCOIN_CORE_VERSION}; \
-    elif [ "$ARCH" = "x86_64" ]; then \
-        wget https://bitcoincore.org/bin/bitcoin-core-${BITCOIN_CORE_VERSION}/bitcoin-${BITCOIN_CORE_VERSION}-x86_64-linux-gnu.tar.gz && \
-        tar -xvf bitcoin-${BITCOIN_CORE_VERSION}-x86_64-linux-gnu.tar.gz && \
-        mv bitcoin-${BITCOIN_CORE_VERSION}/bin/bitcoin-cli /usr/local/bin/ && \
-        rm -rf bitcoin-${BITCOIN_CORE_VERSION}-x86_64-linux-gnu.tar.gz bitcoin-${BITCOIN_CORE_VERSION}; \
-    else \
-        echo "Unsupported architecture: $ARCH"; \
-        exit 1; \
-    fi
-
+# UTXOracle itself is pure Python stdlib and talks to Bitcoin Core over JSON-RPC.
+# curl is only used by the entrypoint's RPC readiness probe.
+RUN apt-get update && apt-get install -y --no-install-recommends curl && \
+    rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-COPY generate-html.py /app/generate-html.py
-RUN chmod +x /app/generate-html.py
-
+# Vendored verbatim from https://utxo.live/oracle/UTXOracle.py — see UPDATING.md.
 COPY utxoracle.py /app/utxoracle.py
-RUN chmod +x /app/utxoracle.py
 
 ADD ./docker_entrypoint.sh /usr/local/bin/docker_entrypoint.sh
-ADD utils/*.sh /usr/local/bin/
-RUN chmod +x /usr/local/bin/*.sh
+RUN chmod +x /usr/local/bin/docker_entrypoint.sh
 
 EXPOSE 80
 

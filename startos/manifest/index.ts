@@ -4,14 +4,14 @@ import { bitcoindDescription, long, short } from './i18n'
 export const manifest = setupManifest({
   id: 'utxoracle',
   title: 'UTXOracle',
-  license: 'MIT',
-  packageRepo: 'https://github.com/citizenanalog/utxoracle-startos',
-  upstreamRepo: 'https://utxo.live/oracle/UTXOracle.py',
+  license: 'UTXOracle License 1.0',
+  packageRepo: 'https://github.com/Start9-Community/utxoracle-startos',
+  upstreamRepo: 'https://utxo.live/oracle/',
   marketingUrl: 'https://utxo.live/',
   donationUrl:
     'https://primal.net/p/nprofile1qqsd39l0ekt3lrj74cyvs6ma5ehcnvcwwcdy4p4vg8vswsjazkmrplspa5mvm',
   description: { short, long },
-  volumes: ['main'],
+  volumes: ['startos'],
   images: {
     main: {
       source: { dockerBuild: {} },
