@@ -25,7 +25,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
     readonly: true,
   })
 
-  const subcontainer = await sdk.SubContainer.of(
+  const subcontainer = sdk.SubContainer.of(
     effects,
     { imageId: 'main' },
     mounts,
@@ -33,7 +33,8 @@ export const main = sdk.setupMain(async ({ effects }) => {
   )
 
   // Restart the daemon chain if Bitcoin Core's RPC cookie changes
-  await FileHelper.string(`${subcontainer.rootfs}${bitcoinRpcCookieFile}`)
+  const rootfs = await subcontainer.rootfs
+  await FileHelper.string(`${rootfs}${bitcoinRpcCookieFile}`)
     .read()
     .const(effects)
 
