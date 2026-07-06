@@ -59,8 +59,11 @@ analysis completes.
 The run mode (`rb` for today, `yesterday`, or a `YYYY/MM/DD` date) lives in
 `store.json` on the `startos` volume. `startos/main.ts` reads it and passes it to
 the container as the `UTXORACLE_MODE` environment variable. Set it through the
-Configure action. The Bitcoin Core RPC connection is separate: the entrypoint
-generates a `bitcoin.conf` at startup.
+Configure action. The Bitcoin Core RPC connection is separate: `startos/main.ts`
+resolves Bitcoin Core's bound RPC interface over the internal StartOS bridge and
+passes its host and port to the container as the `RPC_HOST`/`RPC_PORT`
+environment variables, which the entrypoint writes into a `bitcoin.conf` at
+startup (falling back to loopback until the address resolves).
 
 ## Network Access and Interfaces
 
@@ -142,6 +145,8 @@ dependencies:
   - bitcoind
 startos_managed_env_vars:
   - UTXORACLE_MODE
+  - RPC_HOST
+  - RPC_PORT
 actions:
   - configure
 health_checks:

@@ -7,8 +7,10 @@
 set -eu
 
 DATADIR="/app/datadir"             # ephemeral data dir we hand to UTXOracle.py
-RPC_HOST="bitcoind.startos"
-RPC_PORT="8332"
+# RPC host/port are supplied by StartOS (main.ts resolves Bitcoin Core's bound
+# RPC interface over the internal bridge); loopback is a placeholder until then.
+RPC_HOST="${RPC_HOST:-127.0.0.1}"
+RPC_PORT="${RPC_PORT:-8332}"
 COOKIE="/mnt/bitcoind/.cookie"
 
 webserver_pid=""

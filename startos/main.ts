@@ -1,8 +1,9 @@
-import { FileHelper, T } from '@start9labs/start-sdk'
+import { T } from '@start9labs/start-sdk'
+import { rpcHostId, rpcPort } from 'bitcoin-core-startos/startos/utils'
 import { storeJson } from './fileModels/store.json'
 import { i18n } from './i18n'
 import { sdk } from './sdk'
-import { bitcoinMountpoint, bitcoinRpcCookieFile, uiPort } from './utils'
+import { bitcoinMountpoint, bridgeAddress, uiPort } from './utils'
 
 type BitcoinCoreManifest = T.SDKManifest & {
   id: 'bitcoind'
@@ -14,6 +15,18 @@ export const main = sdk.setupMain(async ({ effects }) => {
 
   // The run mode (set by the Configure action); re-run when it changes.
   const mode = (await storeJson.read((s) => s.mode).const(effects)) || 'rb'
+
+  // Bitcoin Core's JSON-RPC address over the internal bridge. The mapped value
+  // only changes when the address itself does, so this .const() heals main on
+  // Bitcoin Core install/uninstall/port-change and never restarts on its
+  // updates or cookie rotations. Loopback placeholder until it resolves.
+  const [rpcHost, rpcPortExternal] = (
+    (await bridgeAddress(effects, {
+      packageId: 'bitcoind',
+      hostId: rpcHostId,
+      internalPort: rpcPort,
+    }).const()) ?? `127.0.0.1:${rpcPort}`
+  ).split(':')
 
   // Only Bitcoin Core's volume is mounted (read-only, for the RPC cookie);
   // UTXOracle keeps no state of its own.
@@ -32,18 +45,16 @@ export const main = sdk.setupMain(async ({ effects }) => {
     'utxoracle-sub',
   )
 
-  // Restart the daemon chain if Bitcoin Core's RPC cookie changes
-  const rootfs = await subcontainer.rootfs
-  await FileHelper.string(`${rootfs}${bitcoinRpcCookieFile}`)
-    .read()
-    .const(effects)
-
   return sdk.Daemons.of(effects)
     .addDaemon('primary', {
       subcontainer,
       exec: {
         command: sdk.useEntrypoint(),
-        env: { UTXORACLE_MODE: mode },
+        env: {
+          UTXORACLE_MODE: mode,
+          RPC_HOST: rpcHost,
+          RPC_PORT: rpcPortExternal,
+        },
         runAsInit: true,
       },
       ready: {
