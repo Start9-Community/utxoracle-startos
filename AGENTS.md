@@ -10,7 +10,7 @@ Work this package's `TODO.md` from top to bottom. Keep `README.md` (architecture
 
 ## This repo
 
-- **Package id is `utxoracle`.** Depends (hard-required) on `bitcoind` for local JSON-RPC and chain data; mounts only Bitcoin Core's `main` volume read-only for the RPC cookie and keeps no state of its own. Exports a single `ui` interface on port 80. The run mode is chosen with the `configure` action and passed to `utxoracle.py` via the `UTXORACLE_MODE` env var.
+- **Package id is `utxoracle`.** Depends (hard-required) on `bitcoind` for local JSON-RPC and chain data; mounts only Bitcoin's `main` volume read-only for the RPC cookie and keeps no state of its own. Exports a single `ui` interface on port 80. The run mode is chosen with the `configure` action and passed to `utxoracle.py` via the `UTXORACLE_MODE` env var.
 
 ## Inspecting a running install
 

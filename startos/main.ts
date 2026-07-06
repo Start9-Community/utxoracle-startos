@@ -16,19 +16,20 @@ export const main = sdk.setupMain(async ({ effects }) => {
   // The run mode (set by the Configure action); re-run when it changes.
   const mode = (await storeJson.read((s) => s.mode).const(effects)) || 'rb'
 
-  // Bitcoin Core's JSON-RPC address over the internal bridge. The mapped value
-  // only changes when the address itself does, so this .const() heals main on
-  // Bitcoin Core install/uninstall/port-change and never restarts on its
-  // updates or cookie rotations. Loopback placeholder until it resolves.
-  const [rpcHost, rpcPortExternal] = (
-    (await bridgeAddress(effects, {
-      packageId: 'bitcoind',
-      hostId: rpcHostId,
-      internalPort: rpcPort,
-    }).const()) ?? `127.0.0.1:${rpcPort}`
-  ).split(':')
+  // Bitcoin's JSON-RPC address over the internal bridge, or null while the
+  // dependency is absent/unresolved. The mapped value only changes when the
+  // address itself does, so this .const() heals main on Bitcoin
+  // install/uninstall/port-change and never restarts on its updates or cookie
+  // rotations. While it's null we omit RPC_HOST/RPC_PORT and let the entrypoint
+  // wait; the .const() re-runs main with the real address once Bitcoin resolves.
+  const rpcAddress = await bridgeAddress(effects, {
+    packageId: 'bitcoind',
+    hostId: rpcHostId,
+    internalPort: rpcPort,
+  }).const()
+  const [rpcHost, rpcPortExternal] = rpcAddress?.split(':') ?? []
 
-  // Only Bitcoin Core's volume is mounted (read-only, for the RPC cookie);
+  // Only Bitcoin's volume is mounted (read-only, for the RPC cookie);
   // UTXOracle keeps no state of its own.
   const mounts = sdk.Mounts.of().mountDependency<BitcoinCoreManifest>({
     dependencyId: 'bitcoind',
@@ -52,8 +53,9 @@ export const main = sdk.setupMain(async ({ effects }) => {
         command: sdk.useEntrypoint(),
         env: {
           UTXORACLE_MODE: mode,
-          RPC_HOST: rpcHost,
-          RPC_PORT: rpcPortExternal,
+          ...(rpcAddress
+            ? { RPC_HOST: rpcHost, RPC_PORT: rpcPortExternal }
+            : {}),
         },
         runAsInit: true,
       },

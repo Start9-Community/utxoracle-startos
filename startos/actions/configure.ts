@@ -26,7 +26,7 @@ const inputSpec = InputSpec.of({
           date: Value.datetime({
             name: i18n('Date (UTC)'),
             description: i18n(
-              'A UTC date from 2023-12-15 onward. Historical dates require an unpruned Bitcoin Core node.',
+              'A UTC date from 2023-12-15 onward. Historical dates require an unpruned Bitcoin node.',
             ),
             required: true,
             default: null,

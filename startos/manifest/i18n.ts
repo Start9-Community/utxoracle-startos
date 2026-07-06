@@ -4,7 +4,7 @@ export const short = {
 
 export const long = {
   en_US:
-    'UTXOracle estimates the USD price of bitcoin by analyzing patterns in local Bitcoin transaction data. This StartOS package connects only to the Bitcoin Core service on the same server.',
+    'UTXOracle estimates the USD price of bitcoin by analyzing patterns in local Bitcoin transaction data. This StartOS package connects only to the Bitcoin service on the same server.',
 }
 
 export const bitcoindDescription = {

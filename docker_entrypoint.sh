@@ -2,15 +2,17 @@
 #
 # Thin StartOS wrapper around the unmodified upstream UTXOracle.py.
 # It supplies the node connection (a bitcoin.conf pointing at the StartOS
-# Bitcoin Core service), runs the script, and serves the HTML it produces.
+# Bitcoin service), runs the script, and serves the HTML it produces.
 
 set -eu
 
 DATADIR="/app/datadir"             # ephemeral data dir we hand to UTXOracle.py
-# RPC host/port are supplied by StartOS (main.ts resolves Bitcoin Core's bound
-# RPC interface over the internal bridge); loopback is a placeholder until then.
-RPC_HOST="${RPC_HOST:-127.0.0.1}"
-RPC_PORT="${RPC_PORT:-8332}"
+# RPC host/port are injected by StartOS once the Bitcoin dependency resolves
+# (main.ts resolves its bound RPC interface over the internal bridge). Until
+# then they are unset; we do not fabricate an address, so bitcoin.conf omits
+# them and wait_for_node keeps waiting until main restarts us with the real one.
+RPC_HOST="${RPC_HOST:-}"
+RPC_PORT="${RPC_PORT:-}"
 COOKIE="/mnt/bitcoind/.cookie"
 
 webserver_pid=""
@@ -24,12 +26,14 @@ trap terminate TERM INT
 cd /app
 
 # UTXOracle reads RPC settings from a standard bitcoin.conf in its data dir.
+# rpcconnect/rpcport are written only once StartOS has resolved the address;
+# while unresolved they are omitted rather than pointed at a placeholder.
 mkdir -p "$DATADIR"
-cat > "$DATADIR/bitcoin.conf" <<EOF
-rpcconnect=${RPC_HOST}
-rpcport=${RPC_PORT}
-rpccookiefile=${COOKIE}
-EOF
+{
+    [ -n "$RPC_HOST" ] && echo "rpcconnect=${RPC_HOST}"
+    [ -n "$RPC_PORT" ] && echo "rpcport=${RPC_PORT}"
+    echo "rpccookiefile=${COOKIE}"
+} > "$DATADIR/bitcoin.conf"
 
 # The run mode, provided by StartOS via the daemon env (defaults to today).
 argument="${UTXORACLE_MODE:-rb}"
@@ -71,7 +75,7 @@ wait_for_node() {
             | grep -qE '"initialblockdownload": *false'; then
             return 0
         fi
-        echo "Waiting for Bitcoin Core RPC to be ready and synced..."
+        echo "Waiting for Bitcoin RPC to be ready and synced..."
         sleep 10
     done
 }
@@ -94,7 +98,7 @@ run_utxoracle() {
 
 rm -f /tmp/utxoracle_exit_code
 rm -f /app/UTXOracle_*.html
-write_status_page "UTXOracle is running" "Waiting for Bitcoin Core and computing the price."
+write_status_page "UTXOracle is running" "Waiting for Bitcoin and computing the price."
 start_webserver
 wait_for_node
 
