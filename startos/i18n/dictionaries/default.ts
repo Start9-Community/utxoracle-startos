@@ -10,7 +10,7 @@ const dict = {
   Yesterday: 5,
   'Specific Date': 6,
   'Date (UTC)': 7,
-  'A UTC date from 2023-12-15 onward. Historical dates require an unpruned Bitcoin Core node.': 8,
+  'A UTC date from 2023-12-15 onward. Historical dates require an unpruned Bitcoin node.': 8,
 
   // interfaces.ts
   'Web UI': 9,

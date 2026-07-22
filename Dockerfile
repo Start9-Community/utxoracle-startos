@@ -1,6 +1,6 @@
 FROM python:3.11-slim
 
-# UTXOracle itself is pure Python stdlib and talks to Bitcoin Core over JSON-RPC.
+# UTXOracle itself is pure Python stdlib and talks to Bitcoin over JSON-RPC.
 # curl is only used by the entrypoint's RPC readiness probe.
 RUN apt-get update && apt-get install -y --no-install-recommends curl && \
     rm -rf /var/lib/apt/lists/*
