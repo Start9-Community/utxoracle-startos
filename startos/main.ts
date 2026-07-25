@@ -17,8 +17,8 @@ export const main = sdk.setupMain(async ({ effects }) => {
   const mode = (await storeJson.read((s) => s.mode).const(effects)) || 'rb'
 
   // Bitcoin's JSON-RPC address over the internal bridge, or null while the
-  // dependency is absent/unresolved. The mapped value only changes when the
-  // address itself does, so this .const() heals main on Bitcoin
+  // dependency is absent/unresolved. The bridge address only changes when
+  // Bitcoin's binding does, so this .const() heals main on Bitcoin
   // install/uninstall/port-change and never restarts on its updates or cookie
   // rotations. While it's null we omit RPC_HOST/RPC_PORT and let the entrypoint
   // wait; the .const() re-runs main with the real address once Bitcoin resolves.
