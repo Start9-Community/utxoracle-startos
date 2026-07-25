@@ -3,7 +3,7 @@ import { rpcHostId, rpcPort } from 'bitcoin-core-startos/startos/utils'
 import { storeJson } from './fileModels/store.json'
 import { i18n } from './i18n'
 import { sdk } from './sdk'
-import { bitcoinMountpoint, bridgeAddress, uiPort } from './utils'
+import { bitcoinMountpoint, uiPort } from './utils'
 
 type BitcoinCoreManifest = T.SDKManifest & {
   id: 'bitcoind'
@@ -22,11 +22,14 @@ export const main = sdk.setupMain(async ({ effects }) => {
   // install/uninstall/port-change and never restarts on its updates or cookie
   // rotations. While it's null we omit RPC_HOST/RPC_PORT and let the entrypoint
   // wait; the .const() re-runs main with the real address once Bitcoin resolves.
-  const rpcAddress = await bridgeAddress(effects, {
-    packageId: 'bitcoind',
-    hostId: rpcHostId,
-    internalPort: rpcPort,
-  }).const()
+  const rpcAddress = await sdk.host
+    .getBridgeAddress(effects, {
+      packageId: 'bitcoind',
+      hostId: rpcHostId,
+      internalPort: rpcPort,
+      ssl: false,
+    })
+    .const()
   const [rpcHost, rpcPortExternal] = rpcAddress?.split(':') ?? []
 
   // Only Bitcoin's volume is mounted (read-only, for the RPC cookie);
