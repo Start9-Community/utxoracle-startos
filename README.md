@@ -68,17 +68,17 @@ entrypoint waits for Bitcoin rather than dialing a placeholder.
 
 ## Network Access and Interfaces
 
-| Interface | Protocol | Purpose |
-| --- | --- | --- |
-| Web Interface | HTTP | Serves the temporary status page and generated UTXOracle result page. |
+| Interface     | Protocol | Purpose                                                               |
+| ------------- | -------- | --------------------------------------------------------------------- |
+| Web Interface | HTTP     | Serves the temporary status page and generated UTXOracle result page. |
 
 The interface port is declared in `startos/interfaces.ts`.
 
 ## Actions
 
-| Action | Availability | Purpose |
-| --- | --- | --- |
-| Configure | Any status | Selects which price UTXOracle estimates on its next run. |
+| Action    | Availability | Purpose                                                  |
+| --------- | ------------ | -------------------------------------------------------- |
+| Configure | Any status   | Selects which price UTXOracle estimates on its next run. |
 
 The Configure action offers three choices: **Today** (the most recent 144-block
 window price), **Yesterday** (the previous full UTC day), or **Specific Date** (a
@@ -94,9 +94,9 @@ volume is not backed up by this package.
 
 ## Health Checks
 
-| Health Check | Purpose |
-| --- | --- |
-| Web Interface | Confirms the HTTP server is listening. |
+| Health Check         | Purpose                                                                                                        |
+| -------------------- | -------------------------------------------------------------------------------------------------------------- |
+| Web Interface        | Confirms the HTTP server is listening.                                                                         |
 | UTXOracle Completion | Reports loading while UTXOracle is still running, success after a clean run, and failure after a nonzero exit. |
 
 ## Dependencies
