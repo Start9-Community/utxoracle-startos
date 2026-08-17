@@ -4,153 +4,193 @@
 
 # UTXOracle on StartOS
 
-> **Upstream docs:** <https://utxo.live/oracle/>
->
 > Everything not listed in this document should behave the same as upstream
 > UTXOracle. If a feature, setting, or behavior is not mentioned here, the
-> upstream documentation is accurate and fully applicable.
+> upstream documentation is accurate and fully applicable — see the
+> Documentation section of `instructions.md` for links.
 
-UTXOracle estimates the price of bitcoin by analyzing patterns in local
-on-chain transaction data. This StartOS package runs UTXOracle against the
-Bitcoin service on the same server and serves the generated result page
-through a web interface.
+[UTXOracle](https://utxo.live/oracle/) estimates the price of Bitcoin from the blockchain itself, with no exchange, no API and no price feed — it reads the transaction output values in recent blocks and derives a consensus price from their distribution. This package runs it against your own node and serves the chart it produces.
+
+- **Upstream project:** <https://utxo.live/oracle/>
+- **Wrapper repo:** <https://github.com/Start9-Community/utxoracle-startos>
+
+---
+
+## Table of Contents
+
+- [Image and Container Runtime](#image-and-container-runtime)
+- [Volume and Data Layout](#volume-and-data-layout)
+- [File Models](#file-models)
+- [Dependencies](#dependencies)
+- [Network Access and Interfaces](#network-access-and-interfaces)
+- [Installation and First-Run Flow](#installation-and-first-run-flow)
+- [Actions](#actions)
+- [Tasks](#tasks)
+- [Health Checks](#health-checks)
+- [Backups and Restore](#backups-and-restore)
+- [Limitations and Differences](#limitations-and-differences)
+- [Quick Reference for AI Consumers](#quick-reference-for-ai-consumers)
+
+---
 
 ## Image and Container Runtime
 
-This package is a thin wrapper around upstream UTXOracle. The image is
-`python:3.11-slim` with `utxoracle.py` vendored **verbatim** from
-<https://utxo.live/oracle/UTXOracle.py> (see `UPDATING.md`) plus the StartOS
-entrypoint. UTXOracle talks to Bitcoin over JSON-RPC using only the Python
-standard library — there is no `bitcoin-cli` and no raw block-file access.
+One image, built here around the unmodified upstream script.
 
-The entrypoint writes a `bitcoin.conf` pointing at the StartOS Bitcoin
-service, shows a temporary status page, starts the web server, waits for Bitcoin
-RPC readiness, runs the unmodified script, and serves the HTML chart it
-produces as `index.html`. If UTXOracle exits with an error, the web server keeps
-running and the status page is replaced with a failure page.
+| Property      | Value                                          |
+| ------------- | ---------------------------------------------- |
+| Image         | Built from this repo's `Dockerfile`            |
+| Architectures | x86_64, aarch64                                |
+| Command       | A shell wrapper: run the script, then serve it |
 
-Supported architectures are declared in `startos/manifest/index.ts`.
+| Subcontainer    | Purpose                                  |
+| --------------- | ---------------------------------------- |
+| `utxoracle-sub` | The only daemon — the one to `attach` to |
+
+**The upstream script is vendored unmodified.** The wrapper's whole job is to supply the node connection, run the script once, and serve the HTML it writes — which is why the daemon runs with `runAsInit`, since it supervises both the script and the web server.
+
+**The wrapper writes a standard Bitcoin configuration for the script to read**, because that is how UTXOracle expects to find a node. It **omits the address entirely while StartOS has not resolved one**, rather than writing a placeholder, and waits — the service restarts with the real address as soon as the dependency resolves.
 
 ## Volume and Data Layout
 
-The package keeps no state of its own inside the container — the result page is
-recomputed on each run. Its only persistence is the run-mode setting, stored by
-StartOS in `store.json` on the `startos` volume (read in `startos/main.ts`, not
-mounted into the container).
+One volume, and it holds almost nothing.
 
-The Bitcoin dependency volume is mounted read-only at `/mnt/bitcoind` so
-UTXOracle can read the RPC cookie (`/mnt/bitcoind/.cookie`) for authentication.
-All block data is fetched over JSON-RPC from the local Bitcoin service; the
-package does not read raw block files.
+| Volume                | Mount Point     | Purpose                 |
+| --------------------- | --------------- | ----------------------- |
+| `startos`             | — not mounted   | The package's own store |
+| Bitcoin's `main` (ro) | `/mnt/bitcoind` | The node's RPC cookie   |
 
-## Installation and First-Run Flow
+**UTXOracle keeps no state.** Its data directory is inside the container and discarded on every restart, because every run recomputes from the chain. The only persisted thing is which price to compute.
 
-Install Bitcoin on the same StartOS server before starting UTXOracle.
-The entrypoint generates the `bitcoin.conf` that points UTXOracle at the local
-Bitcoin service; no RPC username or password is generated or stored by this
-package (it uses Bitcoin's cookie).
+**Only Bitcoin's volume is mounted into the container**, read-only, and only for the cookie.
 
-When the service starts, the web interface becomes available first with a
-temporary status page. The final UTXOracle result page appears after block
-analysis completes.
+## File Models
 
-## Configuration Management
+One model, holding one value.
 
-The run mode (`rb` for today, `yesterday`, or a `YYYY/MM/DD` date) lives in
-`store.json` on the `startos` volume. `startos/main.ts` reads it and passes it to
-the container as the `UTXORACLE_MODE` environment variable. Set it through the
-Configure action. The Bitcoin RPC connection is separate: `startos/main.ts`
-resolves Bitcoin's bound RPC interface over the internal StartOS bridge and
-passes its host and port to the container as the `RPC_HOST`/`RPC_PORT`
-environment variables, which the entrypoint writes into a `bitcoin.conf` at
-startup. While the address is unresolved the variables are absent and the
-entrypoint waits for Bitcoin rather than dialing a placeholder.
+| File         | Format | Modelled                | Written by |
+| ------------ | ------ | ----------------------- | ---------- |
+| `store.json` | JSON   | Yes — `FileHelper.json` | The action |
 
-## Network Access and Interfaces
+**Which price to compute**: today's, yesterday's, or a specific date. It is read reactively, so changing it restarts the service and recomputes.
 
-| Interface     | Protocol | Purpose                                                               |
-| ------------- | -------- | --------------------------------------------------------------------- |
-| Web Interface | HTTP     | Serves the temporary status page and generated UTXOracle result page. |
-
-The interface port is declared in `startos/interfaces.ts`.
-
-## Actions
-
-| Action    | Availability | Purpose                                                  |
-| --------- | ------------ | -------------------------------------------------------- |
-| Configure | Any status   | Selects which price UTXOracle estimates on its next run. |
-
-The Configure action offers three choices: **Today** (the most recent 144-block
-window price), **Yesterday** (the previous full UTC day), or **Specific Date** (a
-UTC date from 2023-12-15 onward, chosen with a date picker). The selection is
-stored in `store.json` on the `startos` volume and applied on the service's next
-run.
-
-## Backups and Restore
-
-Backups include the `startos` volume (the run-mode setting). Restore uses the
-standard StartOS SDK backup flow for that volume. The Bitcoin dependency
-volume is not backed up by this package.
-
-## Health Checks
-
-| Health Check         | Purpose                                                                                                        |
-| -------------------- | -------------------------------------------------------------------------------------------------------------- |
-| Web Interface        | Confirms the HTTP server is listening.                                                                         |
-| UTXOracle Completion | Reports loading while UTXOracle is still running, success after a clean run, and failure after a nonzero exit. |
+Bitcoin's address is resolved at start rather than stored — see [Dependencies](#dependencies).
 
 ## Dependencies
 
-Bitcoin is required. The dependency version range and required health
-checks are declared in `startos/dependencies.ts`.
+One, and it is required.
 
-UTXOracle uses Bitcoin for JSON-RPC calls with RPC cookie authentication.
-The Bitcoin dependency volume is mounted read-only solely to read the
-cookie file.
+| Dependency | Required | Health checks required      | Mounted                              | Why              |
+| ---------- | -------- | --------------------------- | ------------------------------------ | ---------------- |
+| Bitcoin    | Yes      | `bitcoind`, `sync-progress` | `main`, read-only at `/mnt/bitcoind` | The chain itself |
+
+**A synced node is required, not merely a running one** — a price derived from a partial chain is not a price.
+
+**Authentication is the node's cookie**, read straight off the mount. No RPC user is created and no password is stored, and because the cookie is read from the mount rather than copied, **a cookie rotated on the node's restart is picked up without this service noticing.**
+
+The node's address is resolved over the internal bridge, reactively: installing, removing, or re-porting Bitcoin heals this service with one restart, while a Bitcoin **update** causes none.
+
+## Network Access and Interfaces
+
+One interface.
+
+| Interface | Id   | Type | Port | Description               |
+| --------- | ---- | ---- | ---- | ------------------------- |
+| Web UI    | `ui` | ui   | 80   | The generated price chart |
+
+Bound on the `ui-multi` MultiHost over HTTP and not masked.
+
+**There is no login**, and nothing to protect: the page is a chart generated from public blockchain data. It exposes nothing about your node or your wallet.
+
+## Installation and First-Run Flow
+
+Install does nothing: no seeding, no task, no credential.
+
+**Bitcoin must be installed and synced** before UTXOracle can run — it is a required dependency with both of its checks demanded.
+
+The first start computes today's price, which takes a while: the script reads and analyses the recent blocks before it writes anything. **The web interface comes up first and the result appears when the computation finishes**, which is why there are two health checks rather than one.
+
+## Actions
+
+One action.
+
+### Configure
+
+Chooses which price to estimate on the next run.
+
+- **Today** — from the most recent blocks. This is the default and works on a **pruned** node.
+- **Yesterday** — the consensus price for the previous full UTC day.
+- **A specific date** — any UTC date from the earliest the method supports.
+- **What it changes:** the mode in the store.
+- **Cost:** the service restarts and recomputes.
+- **Repeat safety:** idempotent, pre-filled with the current selection.
+- **A historical date needs an unpruned node.** A pruned node no longer has those blocks, so the run fails rather than producing a wrong answer.
+
+The date is entered as a calendar date and converted to the format the script expects; the earliest selectable date is enforced by the form.
+
+## Tasks
+
+None. This package raises no tasks, so the service is never held on a prompt and its ordinary controls are always available.
+
+## Health Checks
+
+Two checks, and the second is the interesting one.
+
+| Check      | Displayed as           | Method                            | Grace |
+| ---------- | ---------------------- | --------------------------------- | ----- |
+| `primary`  | "Web Interface"        | Port 80 is listening              | 30s   |
+| `complete` | "UTXOracle Completion" | The script's recorded exit status | —     |
+
+**The completion check reports on the computation, not the server.** The wrapper records the script's exit code when it finishes; until then the check reports that it is still running, and afterwards it reports success or the failure code.
+
+That is what makes a failed run visible. Without it, a script that exited with an error would leave a green web check in front of a page that never updated.
+
+The completion check polls on a schedule that backs off while loading, so a long computation is not hammered.
+
+## Backups and Restore
+
+The `startos` volume is copied — `sdk.Backups.ofVolumes('startos')` — which is the one stored setting.
+
+**There is nothing else to keep.** Every result is recomputed from the chain, so a restored instance simply runs again and produces the same answer, given the same node.
 
 ## Limitations and Differences
 
-1. UTXOracle connects only to the Bitcoin service on the same StartOS
-   server.
-2. The web interface is a static HTTP server that serves the generated
-   UTXOracle result page.
-3. UTXOracle does not store Bitcoin RPC usernames or passwords.
-4. The result page updates when the service is run again; this package does not
-   provide a live streaming price feed.
+1. **A synced Bitcoin node is required**, and both of its health checks must pass.
+2. **Historical dates require an unpruned node.** Today's price works on a pruned one.
+3. **Every run recomputes from scratch** — there is no cache and no history of past results.
+4. **One price at a time.** The mode is a single selection, not a series.
+5. **The first result takes minutes**, and the interface is up before it exists.
+6. **The licence is UTXOracle's own**, not a standard open-source licence.
+7. **No authentication**, which is fine — the page contains only public data.
 
-## What Is Unchanged from Upstream
-
-`utxoracle.py` is the upstream script, vendored verbatim and unmodified. This
-package adds only the StartOS wrapper around it: the Docker image, the entrypoint
-that supplies `bitcoin.conf` and serves the output, dependency wiring, and the
-Configure action.
-
-## Contributing
-
-Build and development workflow follow the StartOS packaging guide: <https://docs.start9.com/packaging>. Keep `README.md`, `instructions.md`, and `AGENTS.md` in sync with any change to user-visible behavior or package structure.
+---
 
 ## Quick Reference for AI Consumers
 
 ```yaml
 package_id: utxoracle
+image: built from ./Dockerfile # vendored, unmodified upstream UTXOracle.py
 architectures:
   - x86_64
   - aarch64
+subcontainers:
+  - utxoracle-sub # runAsInit: true — the wrapper supervises the script and the web server
 volumes:
-  startos: store.json (run mode; not mounted into the container)
-dependency_mounts:
-  bitcoind_main: /mnt/bitcoind
-ports:
-  web: http
-dependencies:
-  - bitcoind
+  startos: null # store.json only, not mounted; bitcoind's main is ro at /mnt/bitcoind
+file_models:
+  - store.json # mode: 'rb' (today) | 'yesterday' | 'YYYY/MM/DD'
 startos_managed_env_vars:
   - UTXORACLE_MODE
-  - RPC_HOST
-  - RPC_PORT
+  - RPC_HOST # omitted entirely while unresolved
+  - RPC_PORT # omitted entirely while unresolved
+dependencies:
+  - bitcoind # required, kind: running, healthChecks: [bitcoind, sync-progress], cookie auth
+interfaces:
+  ui: { type: ui, port: 80 } # no auth; the page is public chain-derived data
 actions:
   - configure
+tasks: []
 health_checks:
-  - primary
-  - complete
+  - primary # displayed "Web Interface"; 30s grace
+  - complete # displayed "UTXOracle Completion"; reads the script's recorded exit code
 ```

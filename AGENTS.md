@@ -6,12 +6,14 @@ Develop it inside a StartOS packaging workspace created by `start-cli s9pk init-
 which provides the packaging guide and agent context one level up. If you're reading this in a
 bare clone with no workspace, the full guide is at <https://docs.start9.com/packaging>.
 
-Work this package's `TODO.md` from top to bottom. Keep `README.md` (architecture, for developers and LLMs) and `instructions.md` (end-user docs) in sync with your changes.
+Work this package's `TODO.md` from top to bottom. Keep `README.md` (technical reference for an AI support or administering agent) and `instructions.md` (end-user docs) in sync with your changes.
 
 ## This repo
 
-- **Package id is `utxoracle`.** Depends (hard-required) on `bitcoind` for local JSON-RPC and chain data; mounts only Bitcoin's `main` volume read-only for the RPC cookie and keeps no state of its own. Exports a single `ui` interface on port 80. The run mode is chosen with the `configure` action and passed to `utxoracle.py` via the `UTXORACLE_MODE` env var.
-
-## Inspecting a running install
-
-To run a command inside the service's container (read its generated config, grep app logs), use `start-cli package attach utxoracle -n utxoracle-sub -- <cmd>`. Select the subcontainer by **name** with `-n` (the name passed to `SubContainer.of` in `main.ts` — here `utxoracle-sub`) or by image with `-i`. Note: `-s/--subcontainer` matches the internal **Guid**, not the name, so passing a name to `-s` fails with "no matching subcontainers".
+- **`utxoracle.py` is vendored unmodified — never patch it.** `docker_entrypoint.sh` is the whole wrapper: it writes a `bitcoin.conf` for the script, runs it once, records the exit code, and serves the HTML. Fixes belong in the wrapper or upstream, not in the script.
+- **Import Bitcoin's host id and RPC port from `bitcoin-core-startos/startos/utils`** rather than hardcoding, so a change on Bitcoin's side is a compile error here.
+- **Cookie auth is read off the read-only dependency mount**, never copied — a cookie rotated on bitcoind's restart is picked up with no action here, and no RPC user is ever created.
+- **`runAsInit: true` is required**: the wrapper supervises both the script and the web server.
+- **The dependency requires `sync-progress`, not just `bitcoind`.** A price computed from a partial chain is wrong, not late.
+- **Nothing is cached.** The container's data dir is ephemeral by design and every run recomputes; don't add a results volume without deciding what a stale result means.
+- **Default branch is `main`, not `master`.** Its CI workflows reference `main`; leave them.
