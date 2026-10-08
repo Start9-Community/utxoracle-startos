@@ -84,7 +84,7 @@ One, and it is required.
 | ---------- | -------- | --------------------------- | ------------------------------------ | ---------------- |
 | Bitcoin    | Yes      | `bitcoind`, `sync-progress` | `main`, read-only at `/mnt/bitcoind` | The chain itself |
 
-Declared in `startos/dependencies.ts` as required, accepting Bitcoin `28.4:14` or later.
+Declared in `startos/dependencies.ts` as required. Bitcoin must be at least `28.4:29`, `29.4:16`, `30.3:16`, or `31.1:16`, depending on its major version. Bitcoin Knots (pre-RDTS) `29.3:29` or later is also accepted.
 
 **A synced node is required, not merely a running one** — a price derived from a partial chain is not a price.
 
