@@ -84,6 +84,8 @@ One, and it is required.
 | ---------- | -------- | --------------------------- | ------------------------------------ | ---------------- |
 | Bitcoin    | Yes      | `bitcoind`, `sync-progress` | `main`, read-only at `/mnt/bitcoind` | The chain itself |
 
+Declared in `startos/dependencies.ts` as required. Bitcoin must be at least `28.4:29`, `29.4:16`, `30.3:16`, or `31.1:16`, depending on its major version. Bitcoin Knots (pre-RDTS) `29.3:29` or later is also accepted.
+
 **A synced node is required, not merely a running one** — a price derived from a partial chain is not a price.
 
 **Authentication is the node's cookie**, read straight off the mount. No RPC user is created and no password is stored, and because the cookie is read from the mount rather than copied, **a cookie rotated on the node's restart is picked up without this service noticing.**
@@ -99,6 +101,8 @@ One interface.
 | Web UI    | `ui` | ui   | 80   | The generated price chart |
 
 Bound on the `ui-multi` MultiHost over HTTP and not masked.
+
+The StartOS 0.3.5 package exposed a host named `main` (Tor 80→80, LAN 443→80). The `0.9.6:9` migration retires it, freeing its port; its onion and any domain on it are not moved to `ui-multi`.
 
 **There is no login**, and nothing to protect: the page is a chart generated from public blockchain data. It exposes nothing about your node or your wallet.
 

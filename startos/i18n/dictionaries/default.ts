@@ -5,7 +5,7 @@ const dict = {
   Configure: 0,
   'Choose which UTXOracle price to estimate': 1,
   'Price to Compute': 2,
-  'Which UTXOracle price to estimate the next time the service runs.': 3,
+  'Which price UTXOracle estimates the next time it runs.\n- Today: from the most recent 144 blocks\n- Yesterday: the previous full UTC day\n- Specific Date: a UTC date you pick; needs an unpruned Bitcoin node': 3,
   Today: 4,
   Yesterday: 5,
   'Specific Date': 6,
