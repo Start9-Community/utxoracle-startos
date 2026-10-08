@@ -8,7 +8,7 @@ const inputSpec = InputSpec.of({
   mode: Value.union({
     name: i18n('Price to Compute'),
     description: i18n(
-      'Which UTXOracle price to estimate the next time the service runs.',
+      'Which price UTXOracle estimates the next time it runs.\n- Today: from the most recent 144 blocks\n- Yesterday: the previous full UTC day\n- Specific Date: a UTC date you pick; needs an unpruned Bitcoin node',
     ),
     default: 'today',
     variants: Variants.of({

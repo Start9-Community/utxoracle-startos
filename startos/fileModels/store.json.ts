@@ -5,7 +5,7 @@ import { sdk } from '../sdk'
 // 'yesterday', or a 'YYYY/MM/DD' date.
 export const storeJson = FileHelper.json(
   { base: sdk.volumes.startos, subpath: 'store.json' },
-  z.object({
+  z.looseObject({
     mode: z.string().catch('rb'),
   }),
 )

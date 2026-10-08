@@ -81,8 +81,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
           // A nonzero `cat` exit means the file is absent: still computing.
           const res = await subcontainer.exec(
             ['cat', '/tmp/utxoracle_exit_code'],
-            {},
-            10_000,
+            { timeout: 10_000 },
           )
           if (res.exitCode !== 0) {
             return {
