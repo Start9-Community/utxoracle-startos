@@ -1,14 +1,13 @@
-import { T } from '@start9labs/start-sdk'
-import { rpcHostId, rpcPort } from 'bitcoin-core-startos/startos/utils'
+import { manifest as bitcoinManifest } from 'bitcoin-core-startos/startos/manifest'
+import {
+  rpcHostId,
+  rpcPort,
+  rpcVolumeId,
+} from 'bitcoin-core-startos/startos/utils'
 import { storeJson } from './fileModels/store.json'
 import { i18n } from './i18n'
 import { sdk } from './sdk'
-import { bitcoinMountpoint, uiPort } from './utils'
-
-type BitcoinCoreManifest = T.SDKManifest & {
-  id: 'bitcoind'
-  volumes: ['main']
-}
+import { bitcoinCookie, bitcoinMountpoint, uiPort } from './utils'
 
 export const main = sdk.setupMain(async ({ effects }) => {
   console.info(i18n('Starting UTXOracle'))
@@ -32,11 +31,11 @@ export const main = sdk.setupMain(async ({ effects }) => {
     .const()
   const [rpcHost, rpcPortExternal] = rpcAddress?.split(':') ?? []
 
-  // Only Bitcoin's volume is mounted (read-only, for the RPC cookie);
+  // Only Bitcoin's public volume is mounted (read-only, for the RPC cookie);
   // UTXOracle keeps no state of its own.
-  const mounts = sdk.Mounts.of().mountDependency<BitcoinCoreManifest>({
+  const mounts = sdk.Mounts.of().mountDependency<typeof bitcoinManifest>({
     dependencyId: 'bitcoind',
-    volumeId: 'main',
+    volumeId: rpcVolumeId,
     subpath: null,
     mountpoint: bitcoinMountpoint,
     readonly: true,
@@ -56,6 +55,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
         command: sdk.useEntrypoint(),
         env: {
           UTXORACLE_MODE: mode,
+          RPC_COOKIE_FILE: bitcoinCookie,
           ...(rpcAddress
             ? { RPC_HOST: rpcHost, RPC_PORT: rpcPortExternal }
             : {}),

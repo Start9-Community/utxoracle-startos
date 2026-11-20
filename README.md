@@ -55,14 +55,14 @@ One image, built here around the unmodified upstream script.
 
 One volume, and it holds almost nothing.
 
-| Volume                | Mount Point     | Purpose                 |
-| --------------------- | --------------- | ----------------------- |
-| `startos`             | — not mounted   | The package's own store |
-| Bitcoin's `main` (ro) | `/mnt/bitcoind` | The node's RPC cookie   |
+| Volume                  | Mount Point     | Purpose                 |
+| ----------------------- | --------------- | ----------------------- |
+| `startos`               | — not mounted   | The package's own store |
+| Bitcoin's `public` (ro) | `/mnt/bitcoind` | The node's RPC cookie   |
 
 **UTXOracle keeps no state.** Its data directory is inside the container and discarded on every restart, because every run recomputes from the chain. The only persisted thing is which price to compute.
 
-**Only Bitcoin's volume is mounted into the container**, read-only, and only for the cookie.
+**Only Bitcoin's `public` volume is mounted into the container**, read-only, for the `.cookie` it publishes there. Bitcoin's `main` volume — its chain, wallets and `bitcoin.conf` — is not mounted.
 
 ## File Models
 
@@ -80,15 +80,15 @@ Bitcoin's address is resolved at start rather than stored — see [Dependencies]
 
 One, and it is required.
 
-| Dependency | Required | Health checks required      | Mounted                              | Why              |
-| ---------- | -------- | --------------------------- | ------------------------------------ | ---------------- |
-| Bitcoin    | Yes      | `bitcoind`, `sync-progress` | `main`, read-only at `/mnt/bitcoind` | The chain itself |
+| Dependency | Required | Health checks required      | Mounted                                | Why              |
+| ---------- | -------- | --------------------------- | -------------------------------------- | ---------------- |
+| Bitcoin    | Yes      | `bitcoind`, `sync-progress` | `public`, read-only at `/mnt/bitcoind` | The chain itself |
 
-Declared in `startos/dependencies.ts` as required. Bitcoin must be at least `28.4:29`, `29.4:16`, `30.3:16`, or `31.1:16`, depending on its major version. Bitcoin Knots (pre-RDTS) `29.3:29` or later is also accepted.
+Declared in `startos/dependencies.ts` as required. Bitcoin must be at least `28.4:42`, `29.5:4`, `30.4:4`, or `31.2:4`, depending on its major version — the first versions that publish the cookie on the `public` volume. Bitcoin Knots (pre-RDTS) `29.3:33` or later is also accepted.
 
 **A synced node is required, not merely a running one** — a price derived from a partial chain is not a price.
 
-**Authentication is the node's cookie**, read straight off the mount. No RPC user is created and no password is stored, and because the cookie is read from the mount rather than copied, **a cookie rotated on the node's restart is picked up without this service noticing.**
+**Authentication is the node's cookie**, read straight off the mount at `/mnt/bitcoind/.cookie` (passed to the entrypoint as `RPC_COOKIE_FILE`). No RPC user is created and no password is stored, and because the cookie is read from the mount rather than copied, **a cookie rotated on the node's restart is picked up without this service noticing.**
 
 The node's address is resolved over the internal bridge, reactively: installing, removing, or re-porting Bitcoin heals this service with one restart, while a Bitcoin **update** causes none.
 
@@ -180,11 +180,12 @@ architectures:
 subcontainers:
   - utxoracle-sub # runAsInit: true — the wrapper supervises the script and the web server
 volumes:
-  startos: null # store.json only, not mounted; bitcoind's main is ro at /mnt/bitcoind
+  startos: null # store.json only, not mounted; bitcoind's public is ro at /mnt/bitcoind
 file_models:
   - store.json # mode: 'rb' (today) | 'yesterday' | 'YYYY/MM/DD'
 startos_managed_env_vars:
   - UTXORACLE_MODE
+  - RPC_COOKIE_FILE # /mnt/bitcoind/.cookie
   - RPC_HOST # omitted entirely while unresolved
   - RPC_PORT # omitted entirely while unresolved
 dependencies:

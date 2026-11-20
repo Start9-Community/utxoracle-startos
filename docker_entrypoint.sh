@@ -13,7 +13,7 @@ DATADIR="/app/datadir"             # ephemeral data dir we hand to UTXOracle.py
 # them and wait_for_node keeps waiting until main restarts us with the real one.
 RPC_HOST="${RPC_HOST:-}"
 RPC_PORT="${RPC_PORT:-}"
-COOKIE="/mnt/bitcoind/.cookie"
+COOKIE="${RPC_COOKIE_FILE:?}"
 
 webserver_pid=""
 
