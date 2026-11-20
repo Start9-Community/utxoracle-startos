@@ -151,6 +151,8 @@ That is what makes a failed run visible. Without it, a script that exited with a
 
 The completion check polls on a schedule that backs off while loading, so a long computation is not hammered.
 
+While the installed Bitcoin is too old to publish its `public` volume, UTXOracle mounts nothing from it and runs no daemon: a lone `bitcoin` check, "Bitcoin Connection", fails and asks for Bitcoin to be updated. The installed manifest is watched, so updating Bitcoin starts UTXOracle normally.
+
 ## Backups and Restore
 
 The `startos` volume is copied — `sdk.Backups.ofVolumes('startos')` — which is the one stored setting.
@@ -198,4 +200,5 @@ tasks: []
 health_checks:
   - primary # displayed "Web Interface"; 30s grace
   - complete # displayed "UTXOracle Completion"; reads the script's recorded exit code
+  - bitcoin # displayed "Bitcoin Connection"; only while Bitcoin is too old to publish its public volume
 ```

@@ -12,6 +12,25 @@ import { bitcoinCookie, bitcoinMountpoint, uiPort } from './utils'
 export const main = sdk.setupMain(async ({ effects }) => {
   console.info(i18n('Starting UTXOracle'))
 
+  // An older Bitcoin lacks the public volume, and mounting a missing volume fails the start.
+  const hasRpcVolume = await sdk
+    .getServiceManifest(effects, 'bitcoind', (m) =>
+      m?.volumes.includes(rpcVolumeId),
+    )
+    .const()
+  if (hasRpcVolume === false) {
+    return sdk.Daemons.of(effects).addHealthCheck('bitcoin', {
+      ready: {
+        display: i18n('Bitcoin Connection'),
+        fn: () => ({
+          result: 'failure',
+          message: i18n('Update Bitcoin so UTXOracle can connect to it'),
+        }),
+      },
+      requires: [],
+    })
+  }
+
   // The run mode (set by the Configure action); re-run when it changes.
   const mode = (await storeJson.read((s) => s.mode).const(effects)) || 'rb'
 

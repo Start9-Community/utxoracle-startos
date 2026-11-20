@@ -25,6 +25,8 @@ const dict = {
   'UTXOracle is still running': 16,
   'UTXOracle completed successfully': 17,
   'UTXOracle exited with an error': 18,
+  'Bitcoin Connection': 19,
+  'Update Bitcoin so UTXOracle can connect to it': 20,
 } as const
 
 /**

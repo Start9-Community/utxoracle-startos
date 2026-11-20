@@ -12,6 +12,8 @@ Install and start **Bitcoin** on the same StartOS server. UTXOracle connects to 
 
 Bitcoin must be **fully synced** before UTXOracle will run — a price derived from a partial chain is not a price.
 
+If UTXOracle's **Bitcoin Connection** check asks you to update Bitcoin, install Bitcoin's update; UTXOracle starts on its own once it is done.
+
 ## Choosing what to compute
 
 Use the **Configure** action to choose which price UTXOracle estimates on its next run:
