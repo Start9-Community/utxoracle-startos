@@ -1,18 +1,18 @@
 import { IMPOSSIBLE, VersionInfo } from '@start9labs/start-sdk'
 
 export const current = VersionInfo.of({
-  version: '0.9.6:11',
+  version: '0.9.6:12',
   releaseNotes: {
     en_US:
-      'With a Bitcoin too old to publish the RPC cookie UTXOracle reads, UTXOracle no longer fails to start: it waits and tells you to update Bitcoin.',
+      'The web interface serves only the chart and its status page. If a run produces no chart, the web interface and the completion check report a failure.',
     es_ES:
-      'Con un Bitcoin demasiado antiguo para publicar la cookie RPC que UTXOracle lee, UTXOracle ya no falla al iniciarse: espera y le indica que actualice Bitcoin.',
+      'La interfaz web solo muestra el gráfico y su página de estado. Si una ejecución no genera un gráfico, la interfaz web y la comprobación de finalización indican un fallo.',
     de_DE:
-      'Mit einem Bitcoin, das zu alt ist, um das von UTXOracle gelesene RPC-Cookie bereitzustellen, startet UTXOracle nicht mehr fehlerhaft: Es wartet und fordert Sie auf, Bitcoin zu aktualisieren.',
+      'Die Weboberfläche zeigt nur das Diagramm und seine Statusseite. Wenn ein Lauf kein Diagramm erzeugt, melden die Weboberfläche und die Abschlussprüfung einen Fehler.',
     pl_PL:
-      'Gdy Bitcoin jest zbyt stary, by udostępniać plik cookie RPC odczytywany przez UTXOracle, UTXOracle nie kończy już uruchamiania błędem: czeka i prosi o aktualizację Bitcoina.',
+      'Interfejs WWW wyświetla tylko wykres i jego stronę stanu. Jeśli obliczenie nie wygeneruje wykresu, interfejs WWW i kontrola ukończenia zgłoszą błąd.',
     fr_FR:
-      "Avec un Bitcoin trop ancien pour publier le cookie RPC que UTXOracle lit, UTXOracle n'échoue plus au démarrage : il attend et vous invite à mettre Bitcoin à jour.",
+      'L’interface web affiche uniquement le graphique et sa page d’état. Si le calcul ne produit aucun graphique, l’interface web et la vérification de fin de calcul signalent un échec.',
   },
   migrations: {
     up: async ({ effects }) => {},

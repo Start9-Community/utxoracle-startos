@@ -98,10 +98,9 @@ export const main = sdk.setupMain(async ({ effects }) => {
       ready: {
         display: i18n('UTXOracle Completion'),
         fn: async () => {
-          // The entrypoint writes utxoracle.py's exit code here once it finishes.
-          // A nonzero `cat` exit means the file is absent: still computing.
+          // The entrypoint records the outcome after publishing the chart or failure page.
           const res = await subcontainer.exec(
-            ['cat', '/tmp/utxoracle_exit_code'],
+            ['cat', '/tmp/utxoracle_status'],
             { timeout: 10_000 },
           )
           if (res.exitCode !== 0) {
@@ -110,16 +109,22 @@ export const main = sdk.setupMain(async ({ effects }) => {
               message: i18n('UTXOracle is still running'),
             }
           }
-          const code = String(res.stdout).trim()
-          if (code === '0') {
+          const status = String(res.stdout).trim()
+          if (status === '0') {
             return {
               result: 'success',
               message: i18n('UTXOracle completed successfully'),
             }
           }
+          if (status === 'chart-unavailable') {
+            return {
+              result: 'failure',
+              message: i18n('UTXOracle could not publish the chart'),
+            }
+          }
           return {
             result: 'failure',
-            message: `${i18n('UTXOracle exited with an error')} (exit code ${code})`,
+            message: `${i18n('UTXOracle exited with an error')} (exit code ${status})`,
           }
         },
         trigger: sdk.trigger.statusTrigger(30_000, {

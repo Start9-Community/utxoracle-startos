@@ -20,6 +20,6 @@ The version is named in the banner near the top of the file (currently "Version 
 
    Never patch the script; adapt `docker_entrypoint.sh` instead. After updating, confirm upstream still reads `bitcoin.conf` for `rpcconnect`/`rpcport`/`rpccookiefile` and still writes an `UTXOracle_*.html` file; if those conventions change, adjust `docker_entrypoint.sh`.
 
-   The entrypoint strips the upstream "Live Updating Oracle" promo and its YouTube `<iframe>` from the result page. Re-check the served page for external URLs (`grep -E 'https?://' index.html`) and adjust the `sed` in `docker_entrypoint.sh` if upstream changes the markup.
+   The entrypoint strips the upstream "Live Updating Oracle" promo and its YouTube `<iframe>` from the result page. Re-check the served page for external URLs (`grep -E 'https?://' /app/www/index.html` inside the container) and adjust the `sed` in `docker_entrypoint.sh` if upstream changes the markup.
 
 2. Bump the `python:*-slim` base image in `Dockerfile` only if a newer Python is required.

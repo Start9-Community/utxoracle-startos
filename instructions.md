@@ -32,4 +32,6 @@ Open the **Web UI** interface to see the chart.
 
 The first run takes several minutes: the interface comes up straight away, but the chart only appears once the computation finishes. The **UTXOracle Completion** health check tells you which stage you are in — it reports that the run is still going, and then whether it succeeded or failed.
 
+If the chart is unavailable after the run, the chart page and **UTXOracle Completion** show a failure. Check the service logs for details. For example, a date may be too recent for Bitcoin to have enough blocks to calculate a daily price.
+
 Every run recomputes from the chain. Nothing is cached and no history of past results is kept, so re-running a date gives you the same answer rather than a stored one.

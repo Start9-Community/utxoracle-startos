@@ -106,6 +106,8 @@ The StartOS 0.3.5 package exposed a host named `main` (Tor 80→80, LAN 443→80
 
 **There is no login**, and nothing to protect: the page is a chart generated from public blockchain data. It exposes nothing about your node or your wallet.
 
+The HTTP server serves `/app/www`, which holds the status page or the finished chart and a favicon. The RPC configuration and unfiltered chart are outside the web root. The published chart has the upstream YouTube embed removed.
+
 ## Installation and First-Run Flow
 
 Install does nothing: no seeding, no task, no credential.
@@ -140,14 +142,12 @@ None. This package raises no tasks, so the service is never held on a prompt and
 
 Two checks, and the second is the interesting one.
 
-| Check      | Displayed as           | Method                            | Grace |
-| ---------- | ---------------------- | --------------------------------- | ----- |
-| `primary`  | "Web Interface"        | Port 80 is listening              | 30s   |
-| `complete` | "UTXOracle Completion" | The script's recorded exit status | —     |
+| Check      | Displayed as           | Method                         | Grace |
+| ---------- | ---------------------- | ------------------------------ | ----- |
+| `primary`  | "Web Interface"        | Port 80 is listening           | 30s   |
+| `complete` | "UTXOracle Completion" | The wrapper's published result | —     |
 
-**The completion check reports on the computation, not the server.** The wrapper records the script's exit code when it finishes; until then the check reports that it is still running, and afterwards it reports success or the failure code.
-
-That is what makes a failed run visible. Without it, a script that exited with an error would leave a green web check in front of a page that never updated.
+**The completion check passes once the finished chart is available.** The wrapper replaces the status page with the chart in one operation, then records success. If the script fails or the wrapper cannot publish a chart, the browser and the health check both report a failure.
 
 The completion check polls on a schedule that backs off while loading, so a long computation is not hammered.
 
@@ -199,6 +199,6 @@ actions:
 tasks: []
 health_checks:
   - primary # displayed "Web Interface"; 30s grace
-  - complete # displayed "UTXOracle Completion"; reads the script's recorded exit code
+  - complete # displayed "UTXOracle Completion"; reads the wrapper's publication status
   - bitcoin # displayed "Bitcoin Connection"; only while Bitcoin is too old to publish its public volume
 ```
